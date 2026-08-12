@@ -1,0 +1,40 @@
+# ── SECRETS: never commit. See SECURITY.md ────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+secrets/
+.instar/
+**/credentials
+**/connection-string*
+*dburl*
+*sqlpass*
+
+# ── Build / deps ──────────────────────────────────────────────────────────
+node_modules/
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+.vercel/
+
+# ── Python ────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# ── OS / editor ───────────────────────────────────────────────────────────
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# ── Local scratch ─────────────────────────────────────────────────────────
+scratch/
+*.local.*
