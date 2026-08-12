@@ -5,9 +5,9 @@
  * parameter — a correlated subquery in the prefix predicate silently defeats
  * prefix spans and turns the ANN scan into lookup joins.
  */
-import { Embedder } from "../lib/bedrock.js";
-import { toVectorLiteral } from "../lib/hash.js";
-import { makePool } from "../ingest/db.js";
+import { Embedder } from "../lib/bedrock";
+import { toVectorLiteral } from "../lib/hash";
+import { makePool } from "../ingest/db";
 
 async function main(): Promise<void> {
   const pool = makePool();

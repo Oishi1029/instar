@@ -27,11 +27,11 @@
  * Everything is real: real embeddings, real rows, a real cluster. The only
  * thing that changes between arms is one SET TRANSACTION ISOLATION LEVEL.
  */
-import { Embedder } from "../lib/bedrock.js";
-import { contentHash, toVectorLiteral } from "../lib/hash.js";
-import { EMBED_IDENTITY } from "../lib/bedrock.js";
-import { makePool, uuidv5 } from "../ingest/db.js";
-import { auditIntegrity, writeLesson, type Isolation } from "../memory/write.js";
+import { Embedder } from "../lib/bedrock";
+import { contentHash, toVectorLiteral } from "../lib/hash";
+import { EMBED_IDENTITY } from "../lib/bedrock";
+import { makePool, uuidv5 } from "../ingest/db";
+import { auditIntegrity, writeLesson, type Isolation } from "../memory/write";
 
 const TENANT_SLUG = "storm";          // isolated from the real corpus
 const SLOTS = 6;                      // contested topics

@@ -2,7 +2,7 @@
   "name": "instar",
   "version": "0.1.0",
   "private": true,
-  "description": "Agent skills that learn from their own failures — agentic memory on CockroachDB + AWS",
+  "description": "Agent skills that learn from their own failures \u2014 agentic memory on CockroachDB + AWS",
   "license": "MIT",
   "type": "module",
   "engines": {
@@ -11,15 +11,23 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "ingest": "tsx src/ingest/run.ts",
-    "ingest:dry": "tsx src/ingest/run.ts --dry-run"
+    "ingest:dry": "tsx src/ingest/run.ts --dry-run",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.677.0",
-    "pg": "^8.13.1"
+    "next": "^15.5.23",
+    "pg": "^8.13.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@types/node": "^22.9.0",
     "@types/pg": "^8.11.10",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3"
   }

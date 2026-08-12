@@ -12,7 +12,7 @@ import {
   BedrockRuntimeClient,
   InvokeModelCommand,
 } from "@aws-sdk/client-bedrock-runtime";
-import { assertUnit, type EmbedIdentity } from "./hash.js";
+import { assertUnit, type EmbedIdentity } from "./hash";
 
 export const TITAN_V2 = "amazon.titan-embed-text-v2:0";
 

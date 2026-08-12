@@ -8,18 +8,18 @@
  * The corpus is ~2,350 rows and that is the number the README states.
  */
 import { readFileSync } from "node:fs";
-import { Embedder, EMBED_IDENTITY } from "../lib/bedrock.js";
-import { contentHash, lessonEmbedText, toVectorLiteral } from "../lib/hash.js";
-import { SpendTracker } from "../lib/spend.js";
+import { Embedder, EMBED_IDENTITY } from "../lib/bedrock";
+import { contentHash, lessonEmbedText, toVectorLiteral } from "../lib/hash";
+import { SpendTracker } from "../lib/spend";
 import {
   ensureTenant, makePool, upsertReturningId, uuidv5, withRetry,
-} from "./db.js";
+} from "./db";
 import {
   chunkMarkdown, loadSkillBundles, relPathOf, type SkillBundle,
-} from "./parseSkills.js";
+} from "./parseSkills";
 import {
   deriveSlot, derivePolarity, isHoldEligible, parseAllReviews, type Finding,
-} from "./parseReviews.js";
+} from "./parseReviews";
 
 const BF =
   "/Users/binyong/Library/CloudStorage/GoogleDrive-binyongbong1029@gmail.com/" +

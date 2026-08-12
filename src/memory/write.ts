@@ -34,7 +34,7 @@
  * will ever warn you that you needed it.
  */
 import type { Pool, PoolClient } from "pg";
-import { uuidv5 } from "../ingest/db.js";
+import { uuidv5 } from "../ingest/db";
 
 export type Isolation = "SERIALIZABLE" | "READ COMMITTED";
 

@@ -8,7 +8,7 @@
  * 276 findings while looking perfectly healthy. The per-file gate below is what
  * caught that: eleven files declared six findings and parsed zero.
  */
-import { parseAllReviews, deriveSlot, isHoldEligible, type Severity } from "./parseReviews.js";
+import { parseAllReviews, deriveSlot, isHoldEligible, type Severity } from "./parseReviews";
 
 const DIR =
   "/Users/binyong/Library/CloudStorage/GoogleDrive-binyongbong1029@gmail.com/" +
