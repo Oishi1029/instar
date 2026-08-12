@@ -52,6 +52,12 @@ export class Embedder {
   private hasSucceeded = false;
 
   constructor(region = process.env.AWS_REGION ?? "us-east-1") {
+    // Credentials live in a NAMED profile (`instar`), not the default one, so
+    // that this project's least-privilege Bedrock-only key is never picked up
+    // implicitly by unrelated AWS tooling on the same machine. The SDK's
+    // default provider chain honours AWS_PROFILE, so set it if the caller
+    // has not chosen otherwise.
+    process.env.AWS_PROFILE ??= process.env.INSTAR_AWS_PROFILE ?? "instar";
     this.client = new BedrockRuntimeClient({ region });
   }
 
