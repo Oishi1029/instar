@@ -59,6 +59,57 @@ corpus size. At 2,164 rows the extrapolation is short; it should not be trusted 
 
 ---
 
+## 1b. Vector-insert concurrency — less is more
+
+**Same corpus, same code, only `INSTAR_CONCURRENCY` changed:**
+
+| Concurrent writers | Throughput |
+|---|---|
+| 16 | ~38 rows/min |
+| **4** | **~123 rows/min** |
+
+**Reducing concurrency 4× more than tripled throughput.**
+
+### Why — and how it was found
+
+Two wrong diagnoses came first. Both looked convincing, and recording them matters more than
+recording the answer:
+
+1. *"Bedrock is throttling a new AWS account."* Plausible — the client retries throttles silently
+   with backoff, so it would degrade quietly rather than error. **Wrong.**
+2. *"The connection pool is too small."* Genuinely a bug (pool max 6 vs 16 workers, so ten were
+   parked) and worth fixing — but **not the cause**. Raising it to 24 changed almost nothing.
+
+The answer came from asking the cluster instead of reasoning about it:
+
+```sql
+SELECT substring(query,1,90), count(*), max(now()-start)
+FROM [SHOW QUERIES] WHERE application_name='instar-ingest' GROUP BY 1;
+```
+
+> `INSERT INTO lesson…` · **n = 16** · longest **43 seconds**
+
+All sixteen workers were stuck on the same statement. They were blocked on the **database** — not on
+Bedrock, not on the pool.
+
+**The mechanism.** `lesson_vec` is `VECTOR INDEX (tenant_id, status, embedding)`. During ingest every
+row shares one prefix — a single tenant, `status = 'candidate'` — so all 2,353 vectors land in the
+**same C-SPANN partition tree**. Concurrent writers contend for the same partitions, and splits
+during a bulk load rewrite entries other writers are touching. Past a handful of writers, extra
+concurrency buys only contention and retries.
+
+### Practical guidance
+
+- **Do not scale vector-insert concurrency the way you would scale ordinary inserts.** CockroachDB's
+  docs warn against *batching* vector inserts; they do not warn that high concurrency is comparably
+  harmful when rows share an index prefix. Measure it on your own prefix distribution.
+- A prefix chosen for **query** speed (`status` in the prefix is what makes filtered ANN fast — the
+  entire point of the design) concentrates **writes** during bulk load. That trade is right here:
+  queries run for the life of the demo; the bulk load happens once.
+- The `spend_ledger` hot row was a separate contention bug found the same way — one row per day, hit
+  twice per item by every worker. Fixed by accumulating in memory and flushing from a single writer.
+  **In both cases the fix was never weaker isolation; it was not creating a hot row.**
+
 ## 2. Bedrock Titan Text Embeddings V2
 
 Request `{"inputText": …, "dimensions": 256, "normalize": true}` → `amazon.titan-embed-text-v2:0`,

@@ -228,7 +228,7 @@ async function main(): Promise<number> {
 
   // Row at a time, bounded concurrency. CockroachDB's docs are explicit that
   // vector inserts must not be batched.
-  const CONCURRENCY = 16;
+  const CONCURRENCY = Number(process.env.INSTAR_CONCURRENCY ?? 4);
   const queue = [...rows];
   await Promise.all(
     Array.from({ length: CONCURRENCY }, async () => {
