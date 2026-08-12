@@ -52,11 +52,23 @@ export class Embedder {
   private hasSucceeded = false;
 
   constructor(region = process.env.AWS_REGION ?? "us-east-1") {
-    // Credentials live in a NAMED profile (`instar`), not the default one, so
-    // that this project's least-privilege Bedrock-only key is never picked up
-    // implicitly by unrelated AWS tooling on the same machine. The SDK's
-    // default provider chain honours AWS_PROFILE, so set it if the caller
-    // has not chosen otherwise.
+    const keyId = process.env.AWS_ACCESS_KEY_ID;
+    const secret = process.env.AWS_SECRET_ACCESS_KEY;
+
+    if (keyId && secret) {
+      // Production (Cloudflare Workers): explicit credentials from wrangler
+      // secrets. There is no ~/.aws to read and no instance metadata endpoint
+      // to fall back on, so the default provider chain would simply fail.
+      this.client = new BedrockRuntimeClient({
+        region,
+        credentials: { accessKeyId: keyId, secretAccessKey: secret },
+      });
+      return;
+    }
+
+    // Local development: a NAMED profile (`instar`), never the default one, so
+    // this project's least-privilege Bedrock-only key is not picked up
+    // implicitly by unrelated AWS tooling on the same machine.
     process.env.AWS_PROFILE ??= process.env.INSTAR_AWS_PROFILE ?? "instar";
     this.client = new BedrockRuntimeClient({ region });
   }

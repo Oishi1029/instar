@@ -5,9 +5,6 @@
  * safe, and both are here rather than sprinkled through call sites.
  */
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import pg from "pg";
 
 /**
@@ -16,14 +13,23 @@ import pg from "pg";
  * verification, and comparing the literal is exactly what we want.
  */
 export function connectionString(): string {
-  const envUrl = process.env.INSTAR_DB_URL;
+  // In production (Cloudflare Workers) this is the ONLY path — the env var is a
+  // wrangler secret, encrypted at rest and never in the repo. The local file
+  // fallback below is a developer convenience and is loaded lazily, because
+  // node:fs and node:os are not things a Worker should import at module scope.
+  const envUrl = process.env.INSTAR_DB_URL ?? process.env.DATABASE_URL;
   if (envUrl) return envUrl;
-  const p = join(homedir(), ".instar", "dburl_instar");
+
   try {
-    return readFileSync(p, "utf8").trim();
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { readFileSync } = require("node:fs") as typeof import("node:fs");
+    const { homedir } = require("node:os") as typeof import("node:os");
+    const { join } = require("node:path") as typeof import("node:path");
+    return readFileSync(join(homedir(), ".instar", "dburl_instar"), "utf8").trim();
   } catch {
     throw new Error(
-      `No database URL. Set INSTAR_DB_URL or create ${p} (mode 0600, never in the repo).`,
+      "No database URL. Set INSTAR_DB_URL (a wrangler secret in production) " +
+      "or create ~/.instar/dburl_instar locally, mode 0600, never in the repo.",
     );
   }
 }

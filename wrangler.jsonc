@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "instar",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-08-01",
+
+  // nodejs_compat is REQUIRED here, not optional. Both `pg` (net/tls) and the
+  // AWS SDK (crypto, streams) need Node built-ins; without this flag the Worker
+  // fails at import time, not at request time, so it looks like a build problem.
+  "compatibility_flags": ["nodejs_compat"],
+
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+
+  "observability": {
+    // Free tier includes Workers Logs. Without this, a demo that breaks during
+    // judging gives us nothing to look at — and we cannot ask a judge what the
+    // error said.
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+
+  // NOTE: no secrets here. DATABASE_URL, AWS_ACCESS_KEY_ID and
+  // AWS_SECRET_ACCESS_KEY are set with `wrangler secret put`, which stores them
+  // encrypted on Cloudflare and never writes them to this file or the repo.
+}

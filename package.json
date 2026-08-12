@@ -14,7 +14,10 @@
     "ingest:dry": "tsx src/ingest/run.ts --dry-run",
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "cf:build": "opennextjs-cloudflare build",
+    "cf:preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "cf:deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.677.0",
@@ -24,11 +27,13 @@
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.20.2",
     "@types/node": "^22.9.0",
     "@types/pg": "^8.11.10",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "tsx": "^4.19.2",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "wrangler": "^4.121.0"
   }
 }
