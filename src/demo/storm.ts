@@ -102,15 +102,30 @@ async function runArm(isolation: Isolation, embedder: Embedder): Promise<void> {
     let retries = 0;
     const outcomes = { inserted: 0, reinforced: 0, conflict: 0, failed: 0 };
 
-    // Every agent races on every slot. Agents alternate polarity so each slot
-    // receives both a "do" and a "don't" from different sessions concurrently.
-    await Promise.all(
-      Array.from({ length: AGENTS }, async (_, a) => {
-        const agentId = uuidv5(`agent/${slug}/${a}`);
-        const sessionId = uuidv5(`session/${slug}/${a}`);
-        for (let s = 0; s < SLOTS; s++) {
+    // ── CONTENTION STRUCTURE ────────────────────────────────────────────
+    // The loop order matters enormously and is the difference between a
+    // demonstration and a nothing-burger.
+    //
+    // Naive version (agent-outer, slot-inner) lets each agent walk the slots at
+    // its own pace, so agents naturally stagger and rarely read the same empty
+    // slot at the same instant. Measured: only 1 undetected contradiction.
+    //
+    // This version is SLOT-OUTER, AGENT-INNER: every agent is released onto the
+    // SAME slot simultaneously, so N readers all see the slot in the same state
+    // and then all decide what to write. That is precisely the race the
+    // invariant is exposed to in a real fleet, and it is what READ COMMITTED
+    // cannot survive.
+    for (let s = 0; s < SLOTS; s++) {
+      await Promise.all(
+        Array.from({ length: AGENTS }, async (_, a) => {
+          const agentId = uuidv5(`agent/${slug}/${a}`);
+          const sessionId = uuidv5(`session/${slug}/${a}`);
           const claim = claims[s * 2 + (a % 2)]!;
-          const hash = contentHash(`${claim.slot}|${claim.body}|${a % 2}`, EMBED_IDENTITY);
+          // Distinct content per agent so the near-dup path does not collapse
+          // every writer into a single reinforce; each agent contributes an
+          // independent observation, as distinct sessions would.
+          const hash = contentHash(
+            `${claim.slot}|${claim.body}|agent-${a}`, EMBED_IDENTITY);
           try {
             const { outcome, retries: r } = await writeLesson(
               pool,
@@ -127,9 +142,9 @@ async function runArm(isolation: Isolation, embedder: Embedder): Promise<void> {
           } catch {
             outcomes.failed++;
           }
-        }
-      }),
-    );
+        }),
+      );
+    }
 
     const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
     const integrity = await auditIntegrity(pool, tenantId);

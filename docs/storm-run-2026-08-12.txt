@@ -1,0 +1,26 @@
+INSTAR storm — same cluster, same code, same workload.
+The ONLY difference between arms is SET TRANSACTION ISOLATION LEVEL.
+
+━━━ ARM: READ COMMITTED ━━━ 16 agents, 6 contested slots
+  writes    : inserted=93 reinforced=2 conflict=1 failed=0
+  retries   : 1   (aborts absorbed by the retry loop)
+  elapsed   : 2.0s
+  lessons   : 94
+  open conflicts            : 1
+  ⚠ UNDETECTED CONTRADICTIONS: 5
+  ⚠ LEDGER DRIFT             : 92
+  INTEGRITY : ❌ CORRUPTED
+
+━━━ ARM: SERIALIZABLE ━━━ 16 agents, 6 contested slots
+  writes    : inserted=6 reinforced=84 conflict=6 failed=0
+  retries   : 405   (aborts absorbed by the retry loop)
+  elapsed   : 19.3s
+  lessons   : 12
+  open conflicts            : 6
+  ⚠ UNDETECTED CONTRADICTIONS: 0
+  ⚠ LEDGER DRIFT             : 0
+  INTEGRITY : ✅ CLEAN
+
+Note: the claim is not "CockroachDB has SERIALIZABLE" — PostgreSQL has it too.
+It is that correctness here depends entirely on isolation, CockroachDB makes the
+safe choice the DEFAULT, and no constraint will ever warn you that you needed it.
