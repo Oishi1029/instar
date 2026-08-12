@@ -12,7 +12,21 @@ import {
   BedrockRuntimeClient,
   InvokeModelCommand,
 } from "@aws-sdk/client-bedrock-runtime";
+import { FetchHttpHandler } from "@smithy/fetch-http-handler";
 import { assertUnit, type EmbedIdentity } from "./hash";
+
+/**
+ * Cloudflare Workers has no Node HTTP stack that the AWS SDK can drive. Left to
+ * its default `node-http-handler`, the SDK does not error — the request simply
+ * never resolves, and the Workers runtime eventually kills the invocation with
+ * "your Worker's code had hung and would never generate a response". Observed
+ * at wallTime 3ms, i.e. it hangs immediately.
+ *
+ * FetchHttpHandler routes the SDK over the platform `fetch`, which Workers does
+ * have. Harmless on Node 20+, which also has global fetch, so one code path
+ * serves both environments.
+ */
+const requestHandler = new FetchHttpHandler();
 
 export const TITAN_V2 = "amazon.titan-embed-text-v2:0";
 
@@ -62,6 +76,7 @@ export class Embedder {
       this.client = new BedrockRuntimeClient({
         region,
         credentials: { accessKeyId: keyId, secretAccessKey: secret },
+        requestHandler,
       });
       return;
     }
@@ -70,7 +85,7 @@ export class Embedder {
     // this project's least-privilege Bedrock-only key is not picked up
     // implicitly by unrelated AWS tooling on the same machine.
     process.env.AWS_PROFILE ??= process.env.INSTAR_AWS_PROFILE ?? "instar";
-    this.client = new BedrockRuntimeClient({ region });
+    this.client = new BedrockRuntimeClient({ region, requestHandler });
   }
 
   async embed(text: string, maxAttempts = 6): Promise<EmbedResult> {

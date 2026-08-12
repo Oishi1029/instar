@@ -89,6 +89,11 @@ export async function POST(req: Request) {
     // error can carry the host, database and even the failing SQL — none of
     // which belongs in a response to an unauthenticated visitor.
     console.error("[instar] request failed:", e);
-    return NextResponse.json({ error: "internal error" }, { status: 500 });
+    // The error CLASS is safe to return and is the single most useful thing for
+    // anyone debugging a deployed Worker: "AccessDeniedException" and
+    // "TypeError" point in completely different directions. The message is not
+    // returned — a pg error can carry the host, database and failing SQL.
+    const name = (e as { name?: string })?.name ?? "Error";
+    return NextResponse.json({ error: "internal error", kind: name }, { status: 500 });
   }
 }
