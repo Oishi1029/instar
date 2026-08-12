@@ -514,7 +514,8 @@ which would turn a ~2 RU read into a ~10 RU write on a judge-facing endpoint wit
 Repeated questions are served from the content-hash embedding cache and cost zero Bedrock calls, so
 the demo can be left open "without any restriction" as the rules require.
 
-**Public deployment: not live as of this commit.** The console runs locally against the same cluster.
+**Live demo: https://instar.binyongbong1029.workers.dev** — Cloudflare Workers (free plan), no
+login, no rate limit, no gate of any kind. The console runs locally against the same cluster.
 
 ---
 
@@ -591,7 +592,7 @@ Stated explicitly so nothing here has to be inferred.
   system. Bedrock is the only AWS service INSTAR actually calls.
 - **`scripts/bootstrap.sh`.** Does not exist. The cluster was provisioned through the Cloud Console
   and `ccloud` interactively; the migrations are the reproducible part.
-- **A public demo URL.** Not deployed as of this commit.
+- ~~A public demo URL.~~ **Now live: https://instar.binyongbong1029.workers.dev**
 - **The holdout arm.** The `injection` table (with its `arm IN ('treatment','holdout')` column) is in
   the schema, and the design is a continuous self-administered A/B test of whether a recalled lesson
   helps. **No code writes it.** No utility measurement exists, and none is claimed.
