@@ -63,12 +63,24 @@ corpus size. At 2,164 rows the extrapolation is short; it should not be trusted 
 
 **Same corpus, same code, only `INSTAR_CONCURRENCY` changed:**
 
-| Concurrent writers | Throughput |
+| Configuration | Throughput |
 |---|---|
-| 16 | ~38 rows/min |
-| **4** | **~123 rows/min** |
+| vector index present, 16 writers | ~38 rows/min |
+| vector index present, 4 writers | ~123 rows/min, **degrading to ~18** as the table grew |
+| **vector index DROPPED, 12 writers** | **~381 rows/min** |
 
-**Reducing concurrency 4× more than tripled throughput.**
+Two separate limits, and the first masked the second:
+
+1. **C-SPANN partition contention.** Reducing concurrency 4× more than tripled throughput — and
+   throughput then *decayed* as the table grew, which is the signature of repeated partition splits.
+2. **Bedrock throttling.** Once the index was dropped, inserts stopped being the constraint and
+   embedding did: ~40 fresh embeddings/min on a new AWS account, whatever the concurrency. Invisible
+   while the index dominated, because the client retries throttles silently with backoff.
+
+**The fix is the one CockroachDB's own docs prescribe for bulk loads: seed first, index after.**
+The same docs note `IMPORT INTO` is unsupported on tables carrying a vector index — for the same
+underlying reason. Dropping `lesson_vec` for the load and recreating it afterwards turns 2,353
+incremental index maintenance operations into one bulk build.
 
 ### Why — and how it was found
 
