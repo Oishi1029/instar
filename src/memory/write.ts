@@ -125,8 +125,18 @@ async function writeBody(c: PoolClient, req: WriteRequest): Promise<WriteOutcome
   // Without this, concurrent agents each insert their own near-identical row
   // and support_count -- which drives confidence and promotion -- is spread
   // across fragments and means nothing.
+  // NOTE the explicit null guard. `dist` is NULL whenever the candidate row has
+  // no embedding yet (the spend gate's deferred path stores rows with a NULL
+  // vector). `Number(null)` is 0, and 0 < 0.15, so without this guard an
+  // un-embedded row would be treated as a PERFECT near-duplicate of whatever
+  // arrives next — silently swallowing a genuinely new lesson into an unrelated
+  // one. Wrong answer, no error.
   const dup = active.find(
-    (r) => Number(r.dist) < NEAR_DUP_DISTANCE && Number(r.polarity) === polarity,
+    (r) =>
+      r.dist !== null &&
+      Number.isFinite(Number(r.dist)) &&
+      Number(r.dist) < NEAR_DUP_DISTANCE &&
+      Number(r.polarity) === polarity,
   );
   if (dup) {
     await c.query(

@@ -29,7 +29,7 @@ export function connectionString(): string {
 }
 
 export function makePool(): pg.Pool {
-  return new pg.Pool({
+  const pool = new pg.Pool({
     connectionString: connectionString(),
     // Must be >= the ingest's worker count, or workers block waiting for a
     // connection and the concurrency setting is a lie. Measured: with max=6
@@ -40,6 +40,14 @@ export function makePool(): pg.Pool {
     idleTimeoutMillis: 10_000,
     application_name: "instar-ingest",
   });
+  // Without this, an idle client erroring (CockroachDB Basic recycles idle
+  // connections) emits an 'error' event with no listener, which in Node is an
+  // uncaught exception that kills the process. On a judge-facing demo that
+  // means the site is simply down, with no clue why.
+  pool.on("error", (err) => {
+    console.error("[instar] idle pg client error:", err.message);
+  });
+  return pool;
 }
 
 /**

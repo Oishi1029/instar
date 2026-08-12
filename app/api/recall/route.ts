@@ -85,6 +85,10 @@ export async function POST(req: Request) {
       usesVectorIndex: /vector search/i.test(plan) && /prefix spans/i.test(plan),
     });
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    // Log the detail server-side; return an opaque message. String(e) on a pg
+    // error can carry the host, database and even the failing SQL — none of
+    // which belongs in a response to an unauthenticated visitor.
+    console.error("[instar] request failed:", e);
+    return NextResponse.json({ error: "internal error" }, { status: 500 });
   }
 }

@@ -38,9 +38,9 @@ amplification*, the measured figure sits at the **optimistic-to-likely** end.
 
 | Scenario | RU | % of 50M cap |
 |---|---|---|
-| Full real corpus (2,164 rows) | ~85,000 | **0.17%** |
-| 20 re-ingests during build week | ~1.71M | 3.4% |
-| 50 re-ingests (careless worst case) | ~4.27M | 8.5% |
+| Full real corpus (**2,353 rows**, as shipped) | ~92,700 | **0.19%** |
+| 20 re-ingests during build week | ~1.85M | 3.7% |
+| 50 re-ingests (careless worst case) | ~4.64M | 9.3% |
 
 **Conclusion: the RU budget is not a risk at the corrected corpus size.** The pre-measurement
 worst case of a 65% burn assumed ~9,000 synthetic episodes plus ~27,000 injection rows — a plan that
@@ -51,7 +51,7 @@ budget, for correctness.** Duplicate `lesson_evidence` rows would inflate `suppo
 feeds `confidence`, which decides promotion to `canonical` — the set retrieval actually reads.
 
 **Caveat:** measured at 500 rows into a young index. Partition-split amplification may grow with
-corpus size. At 2,164 rows the extrapolation is short; it should not be trusted at 100,000.
+corpus size. At 2,353 rows the extrapolation is short; it should not be trusted at 100,000.
 
 **Throughput note:** 4.1 rows/s, but that is an artefact of the calibration harness spawning one
 `cockroach-sql` subprocess per row to isolate the per-insert cost. The real ingest uses a pooled
@@ -156,6 +156,10 @@ Both predicates (`tenant_id = …` and `status = 'canonical'`) are evaluated **i
 
 ### Two ways this silently breaks
 
+**Measurement conditions for the covering-index finding below: v26.2.5, table at 26 rows.** The
+mechanism — an exact-match covering index outcompeting the ANN path — is not row-count dependent,
+but the measurement was taken on a small table and is stated that way.
+
 1. **A covering index cannibalises it.** CockroachDB's optimizer recommends
    `CREATE INDEX ON lesson (tenant_id, status) STORING (body, embedding)`. Create it and the plan
    becomes a plain scan + sort — the ANN path never runs. Results stay correct, so nothing appears
@@ -176,3 +180,23 @@ row is stored immediately with a NULL embedding and backfilled later, rather tha
 aborted. Do **not** add `AND embedding IS NOT NULL` to retrieval queries — NULL rows are excluded
 from the index for free, and the extra predicate is an unverified change to the one query the
 submission rests on.
+
+
+---
+
+## 5. Recall latency — two different numbers, two different things
+
+These are easy to conflate, and the console shows only one of them.
+
+| Measurement | Value | What it covers |
+|---|---|---|
+| ANN query alone | **~45 ms** | `pool.query(SQL, …)` only — the timer in `app/api/recall/route.ts` brackets exactly this, and it is the number rendered in the console |
+| End-to-end API call | **~136 ms** | `curl` → Next.js route → embed-cache lookup → ANN → `EXPLAIN` → JSON response |
+
+**Conditions:** client in Malaysia, cluster in AWS `ap-southeast-1`, CockroachDB Basic (free tier),
+corpus 2,303 rows in `lesson`, `LIMIT 8`, warm connection pool. The end-to-end figure includes a
+second round trip because the route also runs `EXPLAIN` so the plan can be returned with the
+results — that is a deliberate cost, paid so the central claim is checkable rather than asserted.
+
+**Not a benchmark.** These are single observations from one client location, not a distribution.
+No percentiles are claimed because none were collected.
