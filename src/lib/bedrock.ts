@@ -69,8 +69,31 @@ interface Creds {
  * AWS tooling on the machine.
  */
 function credentials(): Creds {
-  const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+  let accessKeyId = process.env.AWS_ACCESS_KEY_ID;
+  let secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+
+  // Local fallback: read the named profile from ~/.aws/credentials directly.
+  // A Worker never gets here (its keys are wrangler secrets in the env), and
+  // this must not pull node:fs into the Worker bundle — hence the indirect
+  // require, which the bundler cannot follow.
+  if (!accessKeyId || !secretAccessKey) {
+    try {
+      // process.getBuiltinModule works in ESM and CJS alike; `require` does not
+      // exist in the ESM context tsx uses for real entry points.
+      const get = (process as any).getBuiltinModule;
+      const os = get("node:os"), fs = get("node:fs"), path = get("node:path");
+      const profile = process.env.INSTAR_AWS_PROFILE ?? "instar";
+      const ini: string = fs.readFileSync(
+        path.join(os.homedir(), ".aws", "credentials"), "utf8");
+      // Take only the requested profile's block, then the two keys from it.
+      const block = ini.split(/^\[/m).find((b) => b.startsWith(`${profile}]`));
+      if (block) {
+        accessKeyId ||= block.match(/aws_access_key_id\s*=\s*(\S+)/)?.[1];
+        secretAccessKey ||= block.match(/aws_secret_access_key\s*=\s*(\S+)/)?.[1];
+      }
+    } catch { /* not Node, or no credentials file — fall through to the error */ }
+  }
+
   if (!accessKeyId || !secretAccessKey) {
     throw new Error(
       "No AWS credentials. Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY " +

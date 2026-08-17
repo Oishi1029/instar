@@ -42,6 +42,21 @@ export async function withClient<T>(fn: (c: pg.Client) => Promise<T>): Promise<T
  * has no type parser for the oid, which is fine — we only ever read it back for
  * verification, and comparing the literal is exactly what we want.
  */
+/**
+ * Node-only synchronous access to a builtin, absent in a Worker.
+ *
+ * `process.getBuiltinModule` (Node 22.3+) works in BOTH ESM and CJS, which
+ * `require` does not: tsx compiles `-e` snippets to CJS but real .ts entry
+ * points to ESM, so a `require`-based fallback passes a quick test and then
+ * fails for every actual script. Bundlers cannot follow this call, so node:fs
+ * never reaches the Worker.
+ */
+function builtin(name: string): any {
+  const get = (process as any).getBuiltinModule;
+  if (typeof get !== "function") throw new Error("no builtin access");
+  return get(name);
+}
+
 export function connectionString(): string {
   // In production (Cloudflare Workers) this is the ONLY path — the env var is a
   // wrangler secret, encrypted at rest and never in the repo. The local file
@@ -51,11 +66,17 @@ export function connectionString(): string {
   if (envUrl) return envUrl;
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { readFileSync } = require("node:fs") as typeof import("node:fs");
-    const { homedir } = require("node:os") as typeof import("node:os");
-    const { join } = require("node:path") as typeof import("node:path");
-    return readFileSync(join(homedir(), ".instar", "dburl_instar"), "utf8").trim();
+    // `require` does not exist in the ESM context tsx runs in, and a bare
+    // top-level `import "node:fs"` would be bundled into the Worker. createRequire
+    // gives us a synchronous read in Node while staying invisible to the Worker
+    // build, which never reaches this branch because INSTAR_DB_URL is always set
+    // there.
+    return builtin("node:fs")
+      .readFileSync(
+        builtin("node:path").join(
+          builtin("node:os").homedir(), ".instar", "dburl_instar"),
+        "utf8",
+      ).trim();
   } catch {
     throw new Error(
       "No database URL. Set INSTAR_DB_URL (a wrangler secret in production) " +
