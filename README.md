@@ -617,7 +617,11 @@ Stated explicitly so nothing here has to be inferred.
   `candidate → contested` by the conflict path.
 - **Confidence and decay.** `confidence`, `half_life_days` and `contradict_count` are columns with
   defaults; no scheduler recomputes them.
-- **Contributing skills back to `cockroachlabs/cockroachdb-skills`.** Intended, not submitted.
+- **A *merged* upstream contribution.** A skill has been contributed to
+  `cockroachlabs/cockroachdb-skills` —
+  [PR #21, *Add tuning-vector-index-workloads skill*](https://github.com/cockroachlabs/cockroachdb-skills/pull/21)
+  (opened 2026-08-12, 186 lines). It is **open and unmerged**; whether it lands is the maintainers'
+  call, not something this project can claim.
 
 ---
 
