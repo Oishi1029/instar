@@ -6,25 +6,26 @@
  * number on screen rather than an adjective in a README.
  */
 import { NextResponse } from "next/server";
-import { makePool } from "@/src/ingest/db";
+import { withClient } from "@/src/ingest/db";
 import { auditIntegrity } from "@/src/memory/write";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const pool = makePool();
+
 
 export async function GET() {
   try {
-    const { rows: tenants } = await pool.query(
+    return await withClient(async (db) => {
+    const { rows: tenants } = await db.query(
       `SELECT slug, tenant_id FROM tenant WHERE slug IN ('demo','storm-rc','storm-ser')`);
 
     const out: Record<string, unknown> = {};
     for (const t of tenants) {
-      out[t.slug] = await auditIntegrity(pool, t.tenant_id);
+      out[t.slug] = await auditIntegrity(db as never, t.tenant_id);
     }
 
-    const { rows: [census] } = await pool.query(
+    const { rows: [census] } = await db.query(
       `SELECT
          (SELECT count(*) FROM lesson  WHERE slot NOT LIKE 'storm:%')            AS total_rows,
          (SELECT count(*) FROM lesson  WHERE slot LIKE 'doc:%')                  AS doc_chunks,
@@ -45,6 +46,7 @@ export async function GET() {
               "context, never promoted to canonical).",
       },
       integrity: out,
+    });
     });
   } catch (e) {
     // Log the detail server-side; return an opaque message. String(e) on a pg

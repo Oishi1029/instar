@@ -12,13 +12,16 @@
 import { NextResponse } from "next/server";
 import { Embedder, EMBED_IDENTITY } from "@/src/lib/bedrock";
 import { contentHash, toVectorLiteral } from "@/src/lib/hash";
-import { makePool } from "@/src/ingest/db";
+import { withClient } from "@/src/ingest/db";
 
 export const runtime = "nodejs";      // pg needs net/tls; Edge cannot do this
 export const dynamic = "force-dynamic";
 
-const pool = makePool();              // module scope: reused across invocations
-const embedder = new Embedder();
+// One embedder is safe to memoise: it holds no I/O object, only a region
+// string. The DATABASE client is created per request by withClient() — see the
+// note in src/ingest/db.ts.
+let _embedder: Embedder | null = null;
+const getEmbedder = () => (_embedder ??= new Embedder());
 
 const SQL = `SELECT lesson_id, slot, polarity, status, source_ref,
        substring(body, 1, 400) AS body,
@@ -31,6 +34,7 @@ const SQL = `SELECT lesson_id, slot, polarity, status, source_ref,
 
 export async function POST(req: Request) {
   try {
+    return await withClient(async (db) => {
     const payload = (await req.json()) as {
       query?: unknown; status?: unknown; limit?: unknown;
     };
@@ -42,7 +46,7 @@ export async function POST(req: Request) {
     }
     const k = Math.min(Math.max(Number(limit) || 8, 1), 20);
 
-    const { rows: [t] } = await pool.query(
+    const { rows: [t] } = await db.query(
       "SELECT tenant_id FROM tenant WHERE slug = 'demo'");
     if (!t) return NextResponse.json({ error: "corpus not loaded" }, { status: 503 });
     // Resolved here, passed as $1 — a subquery in the prefix predicate silently
@@ -53,7 +57,7 @@ export async function POST(req: Request) {
     const hash = contentHash(query.trim(), EMBED_IDENTITY);
     let vec: string;
     let cacheHit = false;
-    const hit = await pool.query(
+    const hit = await db.query(
       "SELECT embedding FROM embed_cache WHERE content_hash = $1", [hash]);
     if (hit.rows[0]?.embedding) {
       vec = String(hit.rows[0].embedding);
@@ -61,20 +65,20 @@ export async function POST(req: Request) {
       // NOTE: no `UPDATE hits = hits + 1` here. That would turn a ~2 RU read
       // into a ~10 RU write on the judge-facing path, on unbounded traffic.
     } else {
-      const { embedding } = await embedder.embed(query.trim());
+      const { embedding } = await getEmbedder().embed(query.trim());
       vec = toVectorLiteral(embedding);
-      await pool.query(
+      await db.query(
         `INSERT INTO embed_cache (content_hash, model, dims, embedding)
          VALUES ($1,$2,$3,$4) ON CONFLICT (content_hash) DO NOTHING`,
         [hash, EMBED_IDENTITY.model, EMBED_IDENTITY.dims, vec]);
     }
 
     const t0 = Date.now();
-    const { rows } = await pool.query(SQL, [tenantId, vec, status, k]);
+    const { rows } = await db.query(SQL, [tenantId, vec, status, k]);
     const ms = Date.now() - t0;
 
     // The plan is part of the response, not a screenshot in a README.
-    const { rows: planRows } = await pool.query(
+    const { rows: planRows } = await db.query(
       `EXPLAIN ${SQL}`, [tenantId, vec, status, k]);
     const plan = planRows.map((r) => Object.values(r).join(" ")).join("\n");
 
@@ -83,6 +87,7 @@ export async function POST(req: Request) {
       sql: SQL.replace("$1", `'${tenantId}'`).replace(/\$2/g, "'<256-dim unit vector>'"),
       plan,
       usesVectorIndex: /vector search/i.test(plan) && /prefix spans/i.test(plan),
+    });
     });
   } catch (e) {
     // Log the detail server-side; return an opaque message. String(e) on a pg

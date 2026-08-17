@@ -8,6 +8,36 @@ import { createHash } from "node:crypto";
 import pg from "pg";
 
 /**
+ * A FRESH client per request — never a pool held across requests.
+ *
+ * Cloudflare Workers forbid using an I/O object (a TCP socket) created in one
+ * request context from a different request. A `pg.Pool` memoised at module or
+ * isolate scope does exactly that: request 1 opens a socket and succeeds,
+ * request 2 lands on the same isolate, tries to reuse that socket, and throws
+ * before any handler code runs — surfacing as Cloudflare error 1101.
+ *
+ * The signature was a PERFECTLY alternating 200/500/200/500 on BOTH routes,
+ * including the one that never calls Bedrock. Randomness does not alternate;
+ * a two-state resource does.
+ *
+ * The cost is one TCP + TLS handshake per request. That is the correct trade
+ * for a Worker, and it is what Hyperdrive would otherwise pool on our behalf.
+ */
+export async function withClient<T>(fn: (c: pg.Client) => Promise<T>): Promise<T> {
+  const client = new pg.Client({
+    connectionString: connectionString(),
+    application_name: "instar-web",
+  });
+  await client.connect();
+  try {
+    return await fn(client);
+  } finally {
+    // Always release the socket with the request that created it.
+    await client.end().catch(() => {});
+  }
+}
+
+/**
  * CockroachDB returns VECTOR as a string like '[0.1,-0.2,...]'. node-postgres
  * has no type parser for the oid, which is fine — we only ever read it back for
  * verification, and comparing the literal is exactly what we want.
