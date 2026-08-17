@@ -29,16 +29,17 @@ const SAMPLES = [
   "what should I know before adding a vector index?",
 ];
 
-// Only `retries` and `elapsed` are recorded from the run — they are properties
-// of the execution, not of the stored state. Everything else is read LIVE from
-// the database below, so a judge is looking at the cluster, not at our claims.
+// Every number rendered from these cards is read LIVE from the cluster.
+// `retries` and `elapsed` are deliberately NOT shown: they are properties of a
+// particular execution, not of stored state, so a hardcoded value here would
+// disagree with whatever the terminal prints during a live run — and this page
+// only works if its numbers can be trusted. They are reported by the storm
+// script itself, where they belong.
 const STORM = {
-  agents: 16, slots: 6,
+  slots: 6,
   arms: [
-    { key: "storm-rc",  name: "READ COMMITTED", sub: "PostgreSQL's default",
-      retries: 1,   elapsed: "2.0s" },
-    { key: "storm-ser", name: "SERIALIZABLE",   sub: "CockroachDB's default",
-      retries: 405, elapsed: "19.3s" },
+    { key: "storm-rc",  name: "READ COMMITTED", sub: "PostgreSQL's default" },
+    { key: "storm-ser", name: "SERIALIZABLE",   sub: "CockroachDB's default" },
   ],
 };
 
@@ -161,8 +162,8 @@ export default function Home() {
         <p className="lede">
           <b>These four numbers are queried live from the cluster right now</b>, not
           copied from a run log — the audit SQL is in <code>src/memory/write.ts</code>.
-          Below: {STORM.agents} agents concurrently learn contradictory rules about
-          the same {STORM.slots} topics. <b>Same cluster, same code, same workload.</b>
+          Below: concurrent agents learn contradictory rules about the same
+          {" "}{STORM.slots} topics. <b>Same cluster, same code, same workload.</b>
           {" "}The only difference is one <code>SET TRANSACTION ISOLATION LEVEL</code>.
         </p>
         <div className="arms">
@@ -178,8 +179,6 @@ export default function Home() {
                   <div><dt>ledger drift</dt><dd className="big">{live?.ledgerDrift ?? "…"}</dd></div>
                   <div><dt>lessons stored</dt><dd>{live?.totalLessons ?? "…"}</dd></div>
                   <div><dt>open conflicts</dt><dd>{live?.openConflicts ?? "…"}</dd></div>
-                  <div><dt>retries absorbed</dt><dd>{a.retries}</dd></div>
-                  <div><dt>elapsed</dt><dd>{a.elapsed}</dd></div>
                 </dl>
                 <p className="verdict">{live ? (clean ? "✅ INTEGRITY CLEAN" : "❌ INTEGRITY CORRUPTED") : "auditing…"}</p>
               </div>
@@ -195,8 +194,9 @@ export default function Home() {
           earlier write, and opened arbitration instead.
         </p>
         <p className="note">
-          The cost is real and is not hidden: <b>19.3s versus 2.0s</b>, and 405
-          aborts. Zero writes were dropped in either arm. The claim is <i>not</i>
+          The cost is real and is not hidden: the SERIALIZABLE arm takes several
+          times longer and absorbs hundreds of aborts — the storm script prints
+          both, per run. Zero writes are dropped in either arm. The claim is <i>not</i>
           “CockroachDB has SERIALIZABLE” — PostgreSQL has it too. It is that
           correctness here depends entirely on isolation, CockroachDB makes the safe
           choice the <b>default</b>, and no constraint will ever warn you that you
